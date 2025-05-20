@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>可用資料夾空間</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link 
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" 
+    rel="stylesheet">
+</head>
+<body>
+  <div class="container py-5">
+    <h1 class="mb-4">可用資料夾空間</h1>
+    <div class="list-group">
+      {% for sp in spaces %}
+        <a href="{{ url_for('browse', space=sp.key) }}" 
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+          {{ sp.key }}
+          {% if sp.encrypted %}
+            <span class="badge bg-warning text-dark">已加密</span>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>

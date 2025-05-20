@@ -1,0 +1,51 @@
+/* 你原本就有的 */
+.file-item {
+    cursor: pointer;
+    user-select: none;
+}
+
+#context-menu {
+    position: absolute;
+    display: none;
+    z-index: 1000;
+    width: 120px;
+}
+
+/* 新增：Modal 背景＆彈窗 */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+/* Dialog 最多佔 90% 視窗高度、90% 視窗寬度 */
+.modal-dialog {
+    width: auto;
+    max-width: 90vw;
+    margin: 0;
+    /* flex 置中 */
+}
+
+/* 直接讓圖片依視窗高度縮放，寬度按比例 */
+.modal-backdrop .modal-body img {
+    /* 圖片最大高度 90vh，寬度自動 */
+    max-height: 90vh !important;
+    height: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    display: block;
+    margin: auto;
+}
+
+/* 如果你還想讓上下可以小幅滾動，就留下面兩行 */
+.modal-backdrop .modal-body {
+    padding: 0;
+    overflow-y: auto;
+}
