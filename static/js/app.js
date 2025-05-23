@@ -8,9 +8,14 @@ createApp({
             items: [],
             breadcrumbs: [{ name: 'Home', path: '' }],
             contextItem: null,
-            // 新增 Modal 相關 state
+
+            // Modal 相关
             modalVisible: false,
             modalItem: null,
+
+            // Sidebar 相关，一定要在 data 里初始化！
+            sidebarVisible: false,
+            metadata: {},    // 用来存 API 抓回来的 EXIF data
         }
     },
     methods: {
@@ -42,20 +47,29 @@ createApp({
                 window.open(`/${this.SPACE}/api/download?path=${encodeURIComponent(item.path)}`, '_blank');
             }
         },
-        showContext(e, item) {
+        // showContext(e, item) {
+        //     this.contextItem = item;
+        //     const menu = document.getElementById('context-menu');
+        //     menu.style.top = `${e.clientY}px`;
+        //     menu.style.left = `${e.clientX}px`;
+        //     menu.style.display = 'block';
+        // },
+        openMenu(evt, item) {
             this.contextItem = item;
             const menu = document.getElementById('context-menu');
-            menu.style.top = `${e.clientY}px`;
-            menu.style.left = `${e.clientX}px`;
+            // 跳出在按鈕附近
+            menu.style.top = `${evt.clientY}px`;
+            menu.style.left = `${evt.clientX}px`;
             menu.style.display = 'block';
         },
         hideContext() {
-            document.getElementById('context-menu').style.display = 'none';
+            const menu = document.getElementById('context-menu');
+            menu.style.display = 'none';
         },
-        viewDetails() {
-            alert(`名稱: ${this.contextItem.name}\n路徑: ${this.contextItem.path}`);
-            this.hideContext();
-        },
+        // viewDetails() {
+        //     alert(`名稱: ${this.contextItem.name}\n路徑: ${this.contextItem.path}`);
+        //     this.hideContext();
+        // },
         download() {
             window.location.href = `/${this.SPACE}/api/download?path=${encodeURIComponent(this.contextItem.path)}`;
             this.hideContext();
@@ -71,9 +85,34 @@ createApp({
             this.modalVisible = false;
             this.modalItem = null;
         },
+
+        viewDetails() {
+            this.hideContext();
+            this.openSidebar(this.contextItem);
+        },
+        openSidebar(item) {
+            fetch(`/${this.SPACE}/api/metadata?path=${encodeURIComponent(item.path)}`)
+                .then(r => {
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                    return r.json();
+                })
+                .then(data => {
+                    this.metadata = data;
+                    this.sidebarVisible = true;
+                })
+                .catch(err => {
+                    console.error('metadata fetch failed:', err);
+                    alert('取得檔案資訊失敗');
+                });
+        },
+        closeSidebar() {
+            this.sidebarVisible = false;
+            this.metadata = {};
+        },
     },
     mounted() {
         this.fetchList();
         document.addEventListener('click', this.hideContext);
+        window.addEventListener('scroll', this.hideContext);
     }
 }).mount('#app');

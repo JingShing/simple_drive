@@ -31,8 +31,8 @@
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
       <div v-for="item in items" :key="item.path" class="col">
         <div class="card file-item"
-             @dblclick="open(item)"
-             @contextmenu.prevent="showContext($event, item)">
+             
+              @dblclick="open(item)">
           <!-- 縮圖：單擊 openModal，阻止冒泡 -->
           <img
             v-if="item.is_image"
@@ -45,7 +45,14 @@
             <i :class="item.is_dir ? 'bi bi-folder-fill' : 'bi bi-file-earmark-text'"
                style="font-size:3rem;"></i>
           </div>
-          <div class="card-footer text-truncate">{{ item.name }}</div>
+          <div class="card-footer text-truncate">
+            {{ item.name }}
+            <!-- 三點按鈕 -->
+            <button class="btn btn-sm options-btn" 
+                    @click.stop="openMenu($event, item)">
+              <i class="bi bi-three-dots-vertical"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -75,7 +82,27 @@
         </div>
       </div>
     </div>
+    <div class="sidebar" v-show="sidebarVisible">
+      <button class="btn-close float-end m-2" @click="closeSidebar"></button>
+      <h5 class="px-3">檔案資訊</h5>
+      <ul class="list-group list-group-flush px-3">
+        <li class="list-group-item"><strong>檔名：</strong>{{ metadata.filename }}</li>
+        <li class="list-group-item">
+          <strong>檔案大小：</strong>{{ (metadata.filesize/1024/1024).toFixed(2) }} MB
+        </li>
+        <li class="list-group-item"><strong>解析度：</strong>{{ metadata.resolution }}</li>
+        <li class="list-group-item" v-if="metadata.Make"><strong>製造商：</strong>{{ metadata.Make }}</li>
+        <li class="list-group-item" v-if="metadata.Camera"><strong>相機型號：</strong>{{ metadata.Camera }}</li>
+        <li class="list-group-item" v-if="metadata.LensModel"><strong>鏡頭型號：</strong>{{ metadata.LensModel }}</li>
+        <li class="list-group-item" v-if="metadata.ISO"><strong>ISO：</strong>{{ metadata.ISO }}</li>
+        <li class="list-group-item" v-if="metadata.ShutterSpeed"><strong>快門：</strong>{{ metadata.ShutterSpeed }}</li>
+        <li class="list-group-item" v-if="metadata.Aperture"><strong>光圈：</strong>{{ metadata.Aperture }}</li>
+        <li class="list-group-item" v-if="metadata.DateTime"><strong>拍攝時間：</strong>{{ metadata.DateTime }}</li>
+      </ul>
+    </div>
   </div>
+
+  
 
   <!-- Vue & App.js -->
   <script src="https://unpkg.com/vue@3"></script>

@@ -5,11 +5,12 @@
 }
 
 #context-menu {
-    position: absolute;
+    position: fixed;
     display: none;
-    z-index: 1000;
-    width: 120px;
+    z-index: 2000;
+    width: 140px;
 }
+
 
 /* 新增：Modal 背景＆彈窗 */
 .modal-backdrop {
@@ -48,4 +49,38 @@
 .modal-backdrop .modal-body {
     padding: 0;
     overflow-y: auto;
+}
+
+/* 資訊側欄 */
+.sidebar {
+    width: 300px;
+    background: #fff;
+    border-left: 1px solid #ddd;
+    position: fixed;
+    /* 固定在右側 */
+    top: 0;
+    bottom: 0;
+    right: 0;
+    overflow-y: auto;
+    z-index: 1500;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+/* 在卡片右下角顯示三點按鈕 */
+.options-btn {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    padding: 0.25rem;
+    background: rgba(255, 255, 255, 0.8);
+    border: none;
+    border-radius: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.card.file-item {
+    position: relative;
 }
