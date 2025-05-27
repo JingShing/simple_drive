@@ -26,16 +26,7 @@ app.secret_key = os.environ.get('FLASK_SECRET') or '你自己設的隨機字串'
 #    encrypted: 是否啟用密碼保護
 #    password: 若 encrypted=True，則為該空間密碼
 SPACES = {
-    'shbsb': {
-        'path': r'C:/Users/gonec/Desktop/phonix/表演',
-        'encrypted': False
-    },
-    'jakxjs': {
-        'path': r'C:/Users/gonec/Desktop/phonix/彩排',
-        'encrypted': True,
-        'password': '123'
-    },
-    # ……你可以再加更多
+
 }
 
 
