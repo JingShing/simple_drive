@@ -13,6 +13,7 @@
   <link href="/static/css/style.css" rel="stylesheet">
   <script>
     window.SPACE = {{ space|tojson }};
+    window.ALLOW_UPLOAD = {{ allow_upload|tojson }};
   </script>
 </head>
 <body>
@@ -27,6 +28,20 @@
       </ol>
     </nav>
   
+    <!-- 如果允許上傳，顯示一個檔案輸入按鈕 -->
+    <div v-if="allowUpload" class="mb-3">
+      <label class="btn btn-success btn-sm">
+        <i class="bi bi-upload"></i> 上傳檔案
+        <input 
+          type="file" 
+          class="d-none" 
+          @change="uploadFile" 
+          :disabled="uploading"
+        />
+      </label>
+      <span v-if="uploading" class="ms-2 text-muted">上傳中…</span>
+    </div>
+
     <!-- 圖卡格 -->
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
       <div v-for="item in items" :key="item.path" class="col">

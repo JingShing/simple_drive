@@ -4,6 +4,7 @@ createApp({
     data() {
         return {
             SPACE: window.SPACE,
+            allowUpload: window.ALLOW_UPLOAD,  // 從後端傳過來的布林
             currentPath: '',
             items: [],
             breadcrumbs: [{ name: 'Home', path: '' }],
@@ -108,6 +109,35 @@ createApp({
         closeSidebar() {
             this.sidebarVisible = false;
             this.metadata = {};
+        },
+
+        // 處理檔案上傳
+        uploadFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            this.uploading = true;
+            const form = new FormData();
+            form.append('file', file);
+            // 傳目前資料夾路徑 (this.currentPath)，讓後端存到對應子資料夾
+            form.append('path', this.currentPath);
+            fetch(`/${this.SPACE}/api/upload`, {
+                method: 'POST',
+                body: form,
+            })
+                .then(r => {
+                    this.uploading = false;
+                    if (!r.ok) throw new Error(`Upload failed: ${r.status}`);
+                    return r.json();
+                })
+                .then(res => {
+                    // 上傳成功，重新整理該目錄列表
+                    this.fetchList(this.currentPath);
+                })
+                .catch(err => {
+                    this.uploading = false;
+                    console.error(err);
+                    alert('上傳失敗');
+                });
         },
     },
     mounted() {

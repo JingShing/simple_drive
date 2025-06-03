@@ -26,7 +26,18 @@ app.secret_key = os.environ.get('FLASK_SECRET') or '你自己設的隨機字串'
 #    encrypted: 是否啟用密碼保護
 #    password: 若 encrypted=True，則為該空間密碼
 SPACES = {
-
+    'shbsb': {
+        'path': r'C:/Users/gonec/Pictures/Phone/Picture/2025-03',
+        'encrypted': False,
+        'allow_upload': False
+    },
+    'jakxjs': {
+        'path': r'C:/Users/gonec/Pictures/Phone/Picture/2025-04',
+        'encrypted': True,
+        'password': '123',
+        'allow_upload': True
+    },
+    # ……你可以再加更多
 }
 
 
@@ -96,7 +107,12 @@ def login(space):
 @login_required
 def browse(space):
     # space 傳給前端，用來組 API 路徑
-    return render_template('index.html', space=space)
+    cfg = get_space_cfg(space)
+    return render_template(
+        'index.html',
+        space=space,
+        allow_upload=cfg.get('allow_upload', False)
+    )
 
 # ─── 列出資料夾內容 API ──────────────────────
 
@@ -204,6 +220,34 @@ def api_raw(space):
         name = os.path.basename(rel)
         folder_full = secure_path(cfg['path'], folder)
         return send_from_directory(folder_full, name, as_attachment=False)
+
+
+@app.route('/<space>/api/upload', methods=['POST'])
+@login_required
+def api_upload(space):
+    cfg = get_space_cfg(space)
+    # 如果不允許上傳，就回 403
+    if not cfg.get('allow_upload'):
+        abort(403)
+
+    # 前端會以 form-data 傳一個檔案欄位 "file"
+    uploaded = request.files.get('file')
+    # 你也可以傳一個相對路徑參數 path，決定上傳到哪個子資料夾
+    rel_path = request.form.get('path', '').lstrip('/')
+    target_dir = secure_path(cfg['path'], rel_path)
+
+    if not uploaded:
+        abort(400, description='沒有傳任何檔案過來')
+    # 簡單檢查副檔名（避免任意程式上傳）
+    filename = uploaded.filename
+    if filename == '' or '/' in filename or '\\' in filename:
+        abort(400, description='不合法檔名')
+
+    # 存到 target_dir 底下
+    dest = os.path.join(target_dir, filename)
+    # 如果遠端有同名檔，可以自行決定要複寫或改名，這裡示範覆寫
+    uploaded.save(dest)
+    return jsonify({'success': True, 'filename': filename})
 
 
 @app.route('/<space>/api/metadata')
