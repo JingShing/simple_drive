@@ -116,6 +116,67 @@ SPACES = {
 * **encrypted**：是否啟用密碼保護。
 * **password**：若加密則為該空間的密碼。
 
+## 設定多資料夾與密碼
+
+在 `app.py` 中修改 `SPACES` 字典：
+
+```python
+SPACES = {
+  'shbsb': { 'path': r'C:/path/to/folder1', 'encrypted': False },
+  'jakxjs': { 'path': r'C:/path/to/folder2', 'encrypted': True, 'password': '1234' },
+}
+```
+
+* **key**：URL 路徑前綴 (訪問時使用 `http://.../<key>/`)。
+* **path**：對應的磁碟資料夾。
+* **encrypted**：是否啟用密碼保護。
+* **password**：若加密則為該空間的密碼。
+
+## 使用 config.py 進行設定拆分
+
+為了讓專案更易於維護，我們已將所有空間設定與相關常數抽出到獨立的 `config.py`：
+
+```python
+# config.py
+
+import os
+
+# Flask 用的 secret
+FLASK_SECRET = os.environ.get('FLASK_SECRET') or '你自己設的隨機字串'
+
+# 支援的影像與 RAW 副檔名
+IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+RAW_EXTS   = {'.cr2', '.nef', '.arw', '.raf', '.rw2', '.dng', '.cr3'}
+
+# 多個空間的設定：path, encrypted, password, allow_upload
+SPACES = {
+    'shbsb': {
+        'path': r'Your Folder Path',
+        'encrypted': False,
+        'allow_upload': False
+    },
+    'jakxjs': {
+        'path': r'Your Folder Path',
+        'encrypted': True,
+        'password': '123',
+        'allow_upload': True
+    },
+}
+```
+
+在 `app.py` 中載入並使用 `config.py` 中的常數：
+
+```python
+import config
+
+IMAGE_EXTS = config.IMAGE_EXTS
+RAW_EXTS   = config.RAW_EXTS
+SPACES     = config.SPACES
+app.secret_key = config.FLASK_SECRET
+```
+
+這樣做能將設定集中管理，方便日後調整與維護。
+
 ## 前端技術
 
 * Vue 3
@@ -126,6 +187,7 @@ SPACES = {
 
 ```
 ├── app.py
+├── config.py        # 集中化設定檔
 ├── requirements.txt
 ├── templates/
 │   ├── spaces.html   # 根目錄列表

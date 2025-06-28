@@ -12,33 +12,22 @@ from functools import wraps
 import rawpy
 import exifread
 import imageio
+from hashlib import sha256
+import config as cfg
 
-IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+IMAGE_EXTS = cfg.IMAGE_EXTS
 
-RAW_EXTS = {'.cr2', '.nef', '.arw', '.raf', '.rw2', '.dng', '.cr3'}
+RAW_EXTS = cfg.RAW_EXTS
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 # 用於 session 加密
-app.secret_key = os.environ.get('FLASK_SECRET') or '你自己設的隨機字串'
+app.secret_key = cfg.FLASK_SECRET
 
 # 1. 定義多個「空間」，key 為任意隨機路徑前綴
 #    path: 實際對應的資料夾
 #    encrypted: 是否啟用密碼保護
 #    password: 若 encrypted=True，則為該空間密碼
-SPACES = {
-    'shbsb': {
-        'path': r'C:/Users/gonec/Pictures/Phone/Picture/2025-03',
-        'encrypted': False,
-        'allow_upload': False
-    },
-    'jakxjs': {
-        'path': r'C:/Users/gonec/Pictures/Phone/Picture/2025-04',
-        'encrypted': True,
-        'password': '123',
-        'allow_upload': True
-    },
-    # ……你可以再加更多
-}
+SPACES = cfg.SPACES
 
 
 def get_space_cfg(space):
@@ -91,7 +80,13 @@ def login(space):
 
     error = None
     if request.method == 'POST':
-        if request.form.get('password') == cfg['password']:
+
+        # 前端送來的是 password_hash（SHA-256(hex)），
+        # 後端用 cfg['password'] 做 SHA-256，再比對兩個 hex
+        received_hash = request.form.get('password_hash', '')
+        expected_hash = sha256(cfg['password'].encode()).hexdigest()
+        print(received_hash, expected_hash)
+        if received_hash == expected_hash:
             auth = session.get('authorized_spaces', [])
             auth.append(space)
             session['authorized_spaces'] = auth

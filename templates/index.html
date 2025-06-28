@@ -20,13 +20,31 @@
   {% raw %}
   <div id="app" class="container-fluid p-3">
     <!-- 麵包屑 -->
-    <nav aria-label="breadcrumb">
-      <ol class="breadcrumb">
-        <li class="breadcrumb-item" v-for="(crumb, idx) in breadcrumbs" :key="idx">
-          <a href="#" @click.prevent="navigate(crumb.path)">{{ crumb.name }}</a>
+    <nav aria-label="breadcrumb" class="d-flex align-items-center">
+      <ol class="breadcrumb mb-0 flex-grow-1">
+        <!-- 第一個固定的 Home，點了回到目前空間根目錄 -->
+        <!--<li class="breadcrumb-item">
+          <a href="#" @click.prevent="navigate('')">Home</a>
+        </li>-->
+        <!-- 新增一個「所有空間」的小按鈕 -->
+        <li class="breadcrumb-item">
+          <a href="/" title="所有空間列表">
+            <i class="bi bi-grid-fill"></i>
+          </a>
+        </li>
+        <!-- 接著才是動態 path -->
+        <li 
+          class="breadcrumb-item" 
+          v-for="(crumb, idx) in breadcrumbs" 
+          :key="idx"
+        >
+          <a href="#" @click.prevent="navigate(crumb.path)">
+            {{ crumb.name }}
+          </a>
         </li>
       </ol>
     </nav>
+    
   
     <!-- 如果允許上傳，顯示一個檔案輸入按鈕 -->
     <div v-if="allowUpload" class="mb-3">
