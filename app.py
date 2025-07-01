@@ -14,21 +14,20 @@ import rawpy
 import exifread
 import imageio
 import subprocess
-import config as cfg
+import config
 import numpy as np
 
 
-IMAGE_EXTS = set(cfg.SETTINGS['upload_exts'])  # 只要上傳／預覽的 ext
+IMAGE_EXTS = set(config.SETTINGS['download_exts'])  # 只要上傳／預覽的 ext
 # RAW ext 還是從 config.py RAW_EXTS
-ALLOWED_DOWNLOAD_EXTS = set(cfg.SETTINGS['download_exts'])
-RAW_EXTS = set(cfg.RAW_EXTS)
+RAW_EXTS = set(config.RAW_EXTS)
 app = Flask(__name__, static_folder='static', template_folder='templates')
 # 用於 session 加密
-app.secret_key = cfg.FLASK_SECRET
+app.secret_key = config.FLASK_SECRET
 
 
-SPACES = cfg.SPACES
-SPACES_FILE = cfg.SPACES_FILE
+SPACES = config.SPACES
+SPACES_FILE = config.SPACES_FILE
 
 
 def get_space_cfg(space):
@@ -145,9 +144,11 @@ def api_download(space):
     folder = os.path.dirname(rel)
     name = os.path.basename(rel)
     folder_full = secure_path(cfg['path'], folder)
+
     # 嚴格檢查副檔名
+    allowed = set(config.SETTINGS.get('download_exts', []))
     ext = os.path.splitext(name)[1].lower()
-    if ext not in ALLOWED_DOWNLOAD_EXTS:
+    if ext not in allowed:
         abort(403)
 
     return send_from_directory(folder_full, name, as_attachment=True)
@@ -269,8 +270,10 @@ def api_upload(space):
         abort(400, description='不合法檔名')
 
     # 2. 副檔名檢查
+    # 動態從 settings.json 中讀
+    allowed_up = set(config.SETTINGS.get('upload_exts', []))
     ext = os.path.splitext(filename)[1].lower()
-    if ext not in ALLOWED_UPLOAD_EXTS:
+    if ext not in allowed_up:
         abort(400, description=f'不支援的副檔名：{ext}')
 
     # 3. 存檔
@@ -388,7 +391,7 @@ def admin_login():
     error = None
     if request.method == 'POST':
         pw = request.form.get('password', '')
-        if pw == cfg.ADMIN_PASS:
+        if pw == config.ADMIN_PASS:
             session['is_admin'] = True
             return redirect(request.args.get('next') or url_for('admin_index'))
         else:
@@ -413,7 +416,7 @@ def admin_index():
     return render_template(
         'admin.html',
         spaces=SPACES,
-        settings=cfg.SETTINGS    # <<< 一定要传这个！
+        settings=config.SETTINGS    # <<< 一定要传这个！
     )
 
 # ─── Admin API: 新增或更新 Space ─────────────────
@@ -462,20 +465,16 @@ def admin_delete_space():
 @admin_required
 def admin_save_settings():
     data = request.get_json() or {}
-    # 直接從 cfg.SETTINGS 拿舊設定
-    settings = cfg.SETTINGS
-
-    # 更新 array
-    settings['upload_exts'] = data.get(
-        'upload_exts',   settings.get('upload_exts', []))
-    settings['download_exts'] = data.get(
-        'download_exts', settings.get('download_exts', []))
-
-    # 寫回 settings.json
-    with open(cfg.SETTINGS_FILE, 'w', encoding='utf-8') as f:
-        json.dump(settings, f, ensure_ascii=False, indent=2)
-
+    # 把新的配置写文件
+    with open(config.SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    # **同步刷新内存里的 SETTINGS**：
+    config.SETTINGS = data
+    # **同时刷新 IMAGE_EXTS** 供 thumbnail 路由使用
+    global IMAGE_EXTS
+    IMAGE_EXTS = set(config.SETTINGS.get('upload_exts', []))
     return jsonify({'success': True})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

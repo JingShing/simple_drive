@@ -86,7 +86,7 @@
    ```bash
    git clone https://github.com/HongMJ1315/simple_drive.git
    cd simple_drive
-````
+   ```
 
 2. **建立並啟用虛擬環境**
 
@@ -171,12 +171,48 @@ with open(SPACES_FILE, 'r', encoding='utf-8') as f:
 
 ---
 
+### `exts.json` 範例
+
+```json
+{
+  "upload_exts": [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".tif",
+    ".tiff"
+  ],
+  "download_exts": [
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".cr2",
+    ".nef",
+    ".arw",
+    ".raf",
+    ".rw2",
+    ".dng",
+    ".cr3"
+  ]
+}
+```
+
+
+---
+
 ## 目錄結構
 
 ```
 ├── app.py               # Flask 主程式
 ├── config.py            # 設定檔（space/ext/secret/admin…）
 ├── spaces.json          # 可編輯空間列表，Admin API 持久化
+├── exts.json          # 可上傳即可下載附檔名權限
 ├── requirements.txt
 ├── templates/
 │   ├── spaces.html       # 空間列表
@@ -188,6 +224,4 @@ with open(SPACES_FILE, 'r', encoding='utf-8') as f:
 │   ├── css/style.css
 │   └── js/app.js         # Vue 3 + IntersectionObserver 懶載入
 └── README.md
-```
-
 ```
