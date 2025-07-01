@@ -1,0 +1,5 @@
+Flask>=2.0.0
+Pillow>=8.0.0
+rawpy>=0.19.1
+exifread>=2.3.2
+imageio>=2.26.0

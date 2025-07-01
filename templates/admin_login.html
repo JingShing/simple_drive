@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="zh-Hant">
+<head><meta charset="UTF-8"><title>Admin Login</title></head>
+<body>
+  <form method="post">
+    {% if error %}<p style="color:red">{{ error }}</p>{% endif %}
+    <input type="password" name="password" placeholder="Admin 密碼" required>
+    <button type="submit">登入</button>
+  </form>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Cloud Drive Viewer
 
-這是一個以 Flask 為後端、Vue + Bootstrap 為前端實現的「雲端硬碟」瀏覽與預覽工具，支援多資料夾空間、密碼保護、影像縮圖、RAW 檔解碼、EXIF 資訊顯示、上傳／刪除功能控制，以及縮圖懶載入等特色。
+這是一個以 Flask 為後端、Vue + Bootstrap 為前端實現的「雲端硬碟」瀏覽與預覽工具，支援多資料夾空間、密碼保護、影像縮圖、RAW 檔解碼、EXIF 資訊顯示、上傳／刪除功能控制，以及縮圖懶載入和後台管理（Admin Console）等特色。
 
 ## 功能特色
 
@@ -26,7 +26,7 @@
 
 5. **縮圖預覽 (Thumbnail)**
 
-   * 對一般影像檔 (.jpg/.png/.gif/.bmp) 使用 Pillow 產生縮圖；對 RAW 檔 (.cr2/.nef/.arw/.dng/.cr3) 以 rawpy 半尺解碼並轉為縮圖。
+   * 對一般影像檔 (.jpg/.png/.gif/.bmp/.tif/.tiff) 使用 Pillow 產生縮圖；對 RAW 檔 (.cr2/.nef/.arw/.dng/.cr3) 以 rawpy 半尺解碼並轉為縮圖。
    * 支援**懶載入**：透過 IntersectionObserver，只載入可視區域及上下 buffer 的縮圖，並自動按上至下順序觸發。
    * Endpoint：`GET /<space>/api/thumbnail?path=<rel_path>`。
 
@@ -55,6 +55,19 @@
 
     * 側欄固定在右側，顯示檔案名稱、大小、解析度、製造商、相機型號、鏡頭型號、ISO、快門、光圈、拍攝時間等。
 
+11. **後台管理 (Admin Console)**
+
+    * 位於 `/admin`，需先登入（密碼設定於 `config.py: ADMIN_PASS`）。
+    * 提供 GUI 方式新增/編輯/刪除空間，設定：
+
+      * key (URL 前綴)
+      * path (物理資料夾)
+      * encrypted (是否加密)
+      * password (加密密碼)
+      * allow\_upload (上傳)
+      * allow\_delete (刪除)
+    * 所有變更會寫入 `spaces.json`，重啟服務後持久保留。
+
 ## 前置需求
 
 * **Python 3.7 以上**
@@ -66,7 +79,7 @@
 1. Clone 本專案：
 
    ```bash
-   git clone https://github.com/HongMJ1315/simple_drive.git
+   git clone https://github.com/你的帳號/your-repo.git
    cd your-repo
    ```
 
@@ -90,6 +103,7 @@
 
    ```bash
    export FLASK_SECRET="你的隨機字串"
+   export ADMIN_PASS="後台管理密碼"
    ```
 
 5. 啟動伺服器：
@@ -100,25 +114,47 @@
    flask run --host=0.0.0.0 --port=5000
    ```
 
-6. 在瀏覽器開啟 `http://127.0.0.1:5000/`，選擇空間並開始使用
+6. 在瀏覽器開啟 `http://127.0.0.1:5000/` 或 `http://127.0.0.1:5000/admin/login`，開始使用
 
 ## `config.py` 設定範例
 
 ```python
-import os
+import os, json
 
 # Flask 加密用 secret
 FLASK_SECRET = os.environ.get('FLASK_SECRET') or '你的隨機字串'
+# Admin 登入密碼
+ADMIN_PASS   = os.environ.get('ADMIN_PASS')   or 'admin123'
 
 # 支援的副檔名
-IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
+IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tif', '.tiff'}
 RAW_EXTS   = {'.cr2', '.nef', '.arw', '.raf', '.rw2', '.dng', '.cr3'}
 
-# 資料空間設定
-# allow_upload: 是否顯示上傳按鈕
-# allow_delete: 是否顯示刪除按鈕
-SPACES = {
-    'shbsb': {
+# 多資料夾空間動態讀取於 spaces.json
+BASE_DIR    = os.path.dirname(__file__)
+SPACES_FILE = os.path.join(BASE_DIR, 'spaces.json')
+with open(SPACES_FILE, 'r', encoding='utf-8') as f:
+    SPACES  = json.load(f)
+```
+
+在 `app.py` 載入設定：
+
+```python
+import config
+IMAGE_EXTS    = set(config.IMAGE_EXTS)
+RAW_EXTS      = set(config.RAW_EXTS)
+SPACES        = config.SPACES
+SPACES_FILE   = config.SPACES_FILE
+app.secret_key = config.FLASK_SECRET
+```
+
+### spaces.json 範例
+
+`spaces.json` 用於持久化管理多個空間設定：
+
+```json
+{
+    "shbsb': {
         'path': r'C:/path/to/folder1',
         'encrypted': False,
         'allow_upload': False,
@@ -134,26 +170,19 @@ SPACES = {
 }
 ```
 
-在 `app.py` 載入設定：
-
-```python
-import config
-IMAGE_EXTS    = config.IMAGE_EXTS
-RAW_EXTS      = config.RAW_EXTS
-SPACES        = config.SPACES
-app.secret_key = config.FLASK_SECRET
-```
-
 ## 目錄結構
 
 ```
 ├── app.py         # Flask 主程式
-├── config.py      # 設定檔（space, ext, secret...）
+├── config.py      # 設定檔（space/ext/secret/admin…）
+├── spaces.json    # 可編輯空間列表，提供 Admin API 持久化
 ├── requirements.txt
 ├── templates/
 │   ├── spaces.html  # 空間列表
 │   ├── login.html   # 密碼頁
-│   └── index.html   # 主畫面 Vue 模板
+│   ├── index.html   # 主畫面 Vue 模板
+│   ├── admin_login.html  # Admin 登入頁
+│   └── admin.html   # Admin GUI 控制台
 ├── static/
 │   ├── css/style.css
 │   └── js/app.js   # Vue 3 + IntersectionObserver 懶載入

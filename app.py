@@ -1,19 +1,22 @@
-import os
 from flask import (
     Flask, jsonify, send_from_directory, send_file,
     request, abort, render_template, session,
-    redirect, url_for
+    redirect, url_for, flash
 )
-from PIL import Image, ExifTags
+from PIL import Image, ExifTags, UnidentifiedImageError
 from PIL.TiffImagePlugin import IFDRational
-
 from io import BytesIO
 from functools import wraps
+from hashlib import sha256
+import json
+import os
 import rawpy
 import exifread
 import imageio
-from hashlib import sha256
+import subprocess
 import config as cfg
+import numpy as np
+
 
 IMAGE_EXTS = set(cfg.IMAGE_EXTS)
 RAW_EXTS = set(cfg.RAW_EXTS)
@@ -24,12 +27,9 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 # 用於 session 加密
 app.secret_key = cfg.FLASK_SECRET
 
-# 1. 定義多個「空間」，key 為任意隨機路徑前綴
-#    path: 實際對應的資料夾
-#    encrypted: 是否啟用密碼保護
-#    password: 若 encrypted=True，則為該空間密碼
-SPACES = cfg.SPACES
 
+SPACES = cfg.SPACES
+SPACES_FILE = cfg.SPACES_FILE
 
 def get_space_cfg(space):
     cfg = SPACES.get(space)
@@ -162,22 +162,43 @@ def api_thumbnail(space):
     cfg = get_space_cfg(space)
     file_full = secure_path(cfg['path'], rel)
     ext = os.path.splitext(file_full)[1].lower()
+
     try:
-        # img = Image.open(file_full)
         if ext in RAW_EXTS:
-            # 用 rawpy 解碼到半尺（half-size）
             with rawpy.imread(file_full) as raw:
                 rgb = raw.postprocess(use_camera_wb=True, half_size=True)
-            print("Get RAW")
             img = Image.fromarray(rgb)
+
         else:
-            img = Image.open(file_full)
+            try:
+                # 先用 Pillow 打开
+                img = Image.open(file_full)
+                img.load()
+            except UnidentifiedImageError:
+                # Pillow 打不开时，用 imageio 读
+                arr = imageio.imread(file_full)
+
+                # 如果是浮点型，就映射到 0–255，再转 uint8
+                if issubclass(arr.dtype.type, np.floating):
+                    arr = np.clip(arr * 255, 0, 255).astype(np.uint8)
+                else:
+                    arr = arr.astype(np.uint8)
+
+                img = Image.fromarray(arr)
+
+            # 有些 TIFF 可能是单波道、CMYK、16 位，统一转 RGB
+            if img.mode not in ('RGB', 'RGBA'):
+                img = img.convert('RGB')
+
+        # 生成缩略图
         img.thumbnail((200, 200))
         buf = BytesIO()
         img.save(buf, format='PNG')
         buf.seek(0)
         return send_file(buf, mimetype='image/png')
-    except:
+
+    except Exception as e:
+        app.logger.error(f"Thumbnail 失敗 {file_full}: {e}")
         abort(404)
 
 # ─── 原檔 API（inline 顯示，不會當 attachment） ───────────────────
@@ -290,32 +311,32 @@ def api_metadata(space):
 
     try:
         if ext in RAW_EXTS:
-            # 用 rawpy 取得原始尺寸
+            # 1. 先用 rawpy 取得原始尺寸
             with rawpy.imread(file_full) as raw:
                 h, w = raw.raw_image.shape
             info['resolution'] = f"{w}×{h}"
 
-            # 用 exifread 解析 EXIF
-            with open(file_full, 'rb') as f:
-                tags = exifread.process_file(f, details=False)
+            # 2. 用 ExifTool 讀完整 EXIF（-j 輸出 JSON）
+            res = subprocess.run(
+                ['exiftool', '-j', file_full],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            data = json.loads(res.stdout)[0]  # 取得第一筆
 
-            def first_tag(names):
-                for n in names:
-                    if n in tags:
-                        return str(tags[n])
-                return None
-
+            # 3. 從 data 抽取你想要的欄位
             info.update({
-                'Make':         first_tag(['Image Make']),
-                'Camera':       first_tag(['Image Model']),
-                'LensModel':    first_tag(['EXIF LensModel', 'MakerNotes LensModel']),
-                'ISO':          first_tag(['EXIF ISOSpeedRatings']),
-                'ShutterSpeed': first_tag(['EXIF ExposureTime']),
-                'Aperture':     first_tag(['EXIF FNumber']),
-                'DateTime':     first_tag(['EXIF DateTimeOriginal', 'Image DateTime'])
+                'Make':      data.get('Make'),
+                'Camera':    data.get('Model'),
+                'LensModel': data.get('LensModel'),
+                'ISO':       data.get('ISO'),
+                'ShutterSpeed': data.get('ExposureTime'),
+                'Aperture':  data.get('FNumber'),
+                'DateTime':  data.get('DateTimeOriginal') or data.get('CreateDate'),
             })
         else:
-            # 一般影像走 PIL 路徑
+            # JPEG/PNG 用原本的 PIL + ExifTags
             img = Image.open(file_full)
             info['resolution'] = f"{img.width}×{img.height}"
             exif = img._getexif() or {}
@@ -341,10 +362,88 @@ def api_metadata(space):
             })
 
         return jsonify(info)
-
+    except subprocess.CalledProcessError as e:
+        app.logger.error(f"exiftool error: {e.stderr}")
+        abort(500, '無法讀取 Raw EXIF')
     except Exception as e:
         app.logger.error(f"metadata error {file_full}: {e}")
         abort(404)
+
+
+def admin_required(f):
+    @wraps(f)
+    def w(*args, **kwargs):
+        if not session.get('is_admin'):
+            return redirect(url_for('admin_login', next=request.path))
+        return f(*args, **kwargs)
+    return w
+
+# ─── Admin 登录 ───────────────────────────
+
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    error = None
+    if request.method == 'POST':
+        pw = request.form.get('password', '')
+        if pw == cfg.ADMIN_PASS:
+            session['is_admin'] = True
+            return redirect(request.args.get('next') or url_for('admin_index'))
+        else:
+            error = '密碼錯誤'
+    return render_template('admin_login.html', error=error)
+
+# ─── Admin 登出 ───────────────────────────
+
+
+@app.route('/admin/logout')
+@admin_required
+def admin_logout():
+    session.pop('is_admin', None)
+    return redirect(url_for('admin_login'))
+
+# ─── Admin Dashboard: 列表 & 新增/編輯表單 ─────────
+
+
+@app.route('/admin')
+@admin_required
+def admin_index():
+    return render_template('admin.html', spaces=SPACES)
+
+# ─── Admin API: 新增或更新 Space ─────────────────
+@app.route('/admin/api/save', methods=['POST'])
+@admin_required
+def admin_save():
+    data = request.get_json()
+    key = data.get('key', '').strip()
+    # 基本驗證
+    if not key:
+        return jsonify({'error': 'Key 不能為空'}), 400
+    SPACES[key] = {
+        'path':         data.get('path', ''),
+        'encrypted':    data.get('encrypted', False),
+        'password':     data.get('password', ''),
+        'allow_upload': data.get('allow_upload', False),
+        'allow_delete': data.get('allow_delete', False)
+    }
+    # 寫回 spaces.json
+    with open(SPACES_FILE, 'w', encoding='utf-8') as f:
+        json.dump(SPACES, f, ensure_ascii=False, indent=2)
+    flash(f"已儲存空間 {key}")
+    return jsonify({'success': True})
+
+# ─── Admin API: 刪除 Space ────────────────────
+@app.route('/admin/api/delete', methods=['POST'])
+@admin_required
+def admin_delete_space():
+    data = request.get_json()
+    key = data.get('key')
+    if key in SPACES:
+        SPACES.pop(key)
+        with open(SPACES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(SPACES, f, ensure_ascii=False, indent=2)
+        return jsonify({'success': True})
+    return jsonify({'error': '找不到該空間'}), 404
 
 
 if __name__ == '__main__':

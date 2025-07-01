@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8"><title>Admin Console</title>
+  <script src="https://unpkg.com/vue@3"></script>
+</head>
+<body>
+  <h1>管理控制台</h1>
+  <a href="{{ url_for('admin_logout') }}">登出</a>
+
+  {% raw %}
+  <div id="app">
+    <table border="1" cellpadding="5">
+      <tr>
+        <th>Key</th><th>Path</th><th>Encrypted</th>
+        <th>Upload</th><th>Delete</th><th>Actions</th>
+      </tr>
+      <tr v-for="(cfg, key) in spaces" :key="key">
+        <td>{{ key }}</td>
+        <td>{{ cfg.path }}</td>
+        <td>{{ cfg.encrypted }}</td>
+        <td>{{ cfg.allow_upload }}</td>
+        <td>{{ cfg.allow_delete }}</td>
+        <td>
+          <button @click="edit(key)">編輯</button>
+          <button @click="remove(key)">刪除</button>
+        </td>
+      </tr>
+    </table>
+    
+    <h2>
+        <span v-if="editingKey">編輯</span>
+        <span v-else>新增</span> 空間
+    </h2>
+    <form @submit.prevent="save">
+      <input v-model="form.key" placeholder="key (URL 前綴)" :readonly="editingKey">
+      <input v-model="form.path" placeholder="資料夾絕對路徑" required>
+      <label><input type="checkbox" v-model="form.encrypted"> 加密</label>
+      <input v-if="form.encrypted" v-model="form.password" placeholder="密碼">
+      <label><input type="checkbox" v-model="form.allow_upload"> 允許上傳</label>
+      <label><input type="checkbox" v-model="form.allow_delete"> 允許刪除</label>
+      <button type="submit">儲存</button>
+      <button type="button" @click="reset">清除</button>
+    </form>
+  </div>
+  {% endraw %}
+
+  <script>
+  const { createApp } = Vue;
+  createApp({
+    data(){ return {
+      spaces: {{ spaces|tojson }},
+      editingKey: '',
+      form: { key:'', path:'', encrypted:false, password:'', allow_upload:false, allow_delete:false }
+    }},
+    methods:{
+      edit(key){
+        this.editingKey = key;
+        Object.assign(this.form, { key, ...this.spaces[key] });
+      },
+      reset(){
+        this.editingKey=''; this.form = { key:'', path:'', encrypted:false, password:'', allow_upload:false, allow_delete:false };
+      },
+      save(){
+        fetch('/admin/api/save',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(this.form)
+        }).then(_=> location.reload());
+      },
+      remove(key){
+        if(!confirm(`確定刪除 ${key} ?`))return;
+        fetch('/admin/api/delete',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({key})
+        }).then(_=> location.reload());
+      }
+    }
+  }).mount('#app');
+  </script>
+
+</body>
+</html>
