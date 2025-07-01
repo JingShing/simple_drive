@@ -15,9 +15,10 @@ import imageio
 from hashlib import sha256
 import config as cfg
 
-IMAGE_EXTS = cfg.IMAGE_EXTS
-
-RAW_EXTS = cfg.RAW_EXTS
+IMAGE_EXTS = set(cfg.IMAGE_EXTS)
+RAW_EXTS = set(cfg.RAW_EXTS)
+# 下載也只允許這些
+ALLOWED_DOWNLOAD_EXTS = IMAGE_EXTS | RAW_EXTS
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 # 用於 session 加密
@@ -106,7 +107,8 @@ def browse(space):
     return render_template(
         'index.html',
         space=space,
-        allow_upload=cfg.get('allow_upload', False)
+        allow_upload=cfg.get('allow_upload', False),
+        allow_delete=cfg.get('allow_delete', False)
     )
 
 # ─── 列出資料夾內容 API ──────────────────────
@@ -143,6 +145,11 @@ def api_download(space):
     folder = os.path.dirname(rel)
     name = os.path.basename(rel)
     folder_full = secure_path(cfg['path'], folder)
+    # 嚴格檢查副檔名
+    ext = os.path.splitext(name)[1].lower()
+    if ext not in ALLOWED_DOWNLOAD_EXTS:
+        abort(403)
+
     return send_from_directory(folder_full, name, as_attachment=True)
 
 # ─── 縮圖 API ────────────────────────────────
@@ -189,6 +196,10 @@ def api_raw(space):
     file_full = secure_path(cfg['path'], rel)
 
     ext = os.path.splitext(file_full)[1].lower()
+
+    # 任何非 image/raw 的副檔名都拒絕
+    if ext not in IMAGE_EXTS and ext not in RAW_EXTS:
+        abort(403)
 
     # 如果是 RAW，先 decode 成 JPEG 再回傳
     if ext in RAW_EXTS:
@@ -243,6 +254,25 @@ def api_upload(space):
     # 如果遠端有同名檔，可以自行決定要複寫或改名，這裡示範覆寫
     uploaded.save(dest)
     return jsonify({'success': True, 'filename': filename})
+
+
+@app.route('/<space>/api/delete', methods=['POST'])
+@login_required
+def api_delete(space):
+    cfg = get_space_cfg(space)
+    if not cfg.get('allow_delete'):
+        abort(403)
+    data = request.get_json() or {}
+    rel = data.get('path', '').lstrip('/')
+    file_full = secure_path(cfg['path'], rel)
+    # 我們只允許刪除檔案，不允許刪除資料夾
+    if os.path.isdir(file_full):
+        abort(400, '不支援刪除資料夾')
+    try:
+        os.remove(file_full)
+        return jsonify({'success': True})
+    except Exception as e:
+        abort(500, str(e))
 
 
 @app.route('/<space>/api/metadata')

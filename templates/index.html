@@ -14,6 +14,7 @@
   <script>
     window.SPACE = {{ space|tojson }};
     window.ALLOW_UPLOAD = {{ allow_upload|tojson }};
+    window.ALLOW_DELETE = {{ allow_delete|tojson }};
   </script>
 </head>
 <body>
@@ -94,27 +95,55 @@
     <ul id="context-menu" class="list-group">
       <li class="list-group-item list-group-item-action" @click="viewDetails">內容</li>
       <li class="list-group-item list-group-item-action" @click="download">下載</li>
+      <li class="list-group-item list-group-item-action text-danger" v-if="allowDelete" 
+        @click="deleteItem">刪除</li>
     </ul>
   
     <!-- 圖片檢視 Modal -->
-    <div v-if="modalVisible" class="modal-backdrop" @click.self="closeModal">
-      <div class="modal-dialog">
-        <button class="btn-close float-end m-2" @click="closeModal"></button>
-        <div class="modal-body text-center">
-          <img
-            :src="`/${SPACE}/api/raw?path=${encodeURIComponent(modalItem.path)}`"
-            class="img-fluid"
-            alt="原圖"
-          >
-        </div>
-        <div class="modal-footer justify-content-center">
-          <a
-            :href="`/${SPACE}/api/download?path=${encodeURIComponent(modalItem.path)}`"
-            class="btn btn-primary"
-          >下載</a>
+    <div v-if="modalVisible">
+      <!-- 背景遮罩層 -->
+      <div 
+        class="modal-backdrop" 
+        @click="closeModal"
+        style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index:1040;"
+      ></div>
+
+      <!-- 對話框 -->
+      <div 
+        class="modal-dialog modal-dialog-centered" 
+        style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index:1050; max-width:90%;"
+      >
+        <div class="modal-content">
+          
+          <!-- header：加上 justify-content-end 讓內容都靠右 -->
+          <div class="modal-header justify-content-end">
+            <button 
+              type="button" 
+              class="btn-close" 
+              @click="closeModal"
+            ></button>
+          </div>
+
+          <div class="modal-body text-center">
+            <img
+              :src="`/${SPACE}/api/raw?path=${encodeURIComponent(modalItem.path)}`"
+              class="img-fluid"
+              alt="原圖"
+            >
+          </div>
+
+          <div class="modal-footer justify-content-center">
+            <a
+              :href="`/${SPACE}/api/download?path=${encodeURIComponent(modalItem.path)}`"
+              class="btn btn-primary"
+            >下載</a>
+          </div>
         </div>
       </div>
     </div>
+
+
+
     <div class="sidebar" v-show="sidebarVisible">
       <button class="btn-close float-end m-2" @click="closeSidebar"></button>
       <h5 class="px-3">檔案資訊</h5>

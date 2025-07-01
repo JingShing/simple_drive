@@ -5,6 +5,8 @@ createApp({
         return {
             SPACE: window.SPACE,
             allowUpload: window.ALLOW_UPLOAD,  // 從後端傳過來的布林
+            allowDelete: window.ALLOW_DELETE,   // 來自後端
+
             currentPath: '',
             items: [],
             breadcrumbs: [{ name: 'Home', path: '' }],
@@ -75,7 +77,6 @@ createApp({
             window.location.href = `/${this.SPACE}/api/download?path=${encodeURIComponent(this.contextItem.path)}`;
             this.hideContext();
         },
-
         // ===== Modal methods =====
         openModal(item) {
             if (!item.is_image) return;
@@ -137,6 +138,34 @@ createApp({
                     this.uploading = false;
                     console.error(err);
                     alert('上傳失敗');
+                });
+        },
+        // 刪除檔案
+        deleteItem() {
+            if (!confirm(`確定要刪除 ${this.contextItem.name} 嗎？`)) {
+                this.hideContext();
+                return;
+            }
+            fetch(`/${this.SPACE}/api/delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: this.contextItem.path })
+            })
+                .then(r => {
+                    this.hideContext();
+                    if (!r.ok) throw new Error(`DELETE ${r.status}`);
+                    return r.json();
+                })
+                .then(res => {
+                    if (res.success) {
+                        this.fetchList(this.currentPath);
+                    } else {
+                        alert('刪除失敗');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('刪除發生錯誤');
                 });
         },
     },
