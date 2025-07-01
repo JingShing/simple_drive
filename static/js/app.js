@@ -39,10 +39,12 @@ createApp({
             let acc = '';
             this.breadcrumbs = [{ name: 'Home', path: '' }];
             parts.forEach(p => {
-                acc += `/${p}`;
+                // 如果 acc 还是空，就直接用 p；否则用 acc + '/' + p
+                acc = acc ? `${acc}/${p}` : p;
                 this.breadcrumbs.push({ name: p, path: acc });
             });
         },
+
         navigate(path) {
             this.fetchList(path);
         },
