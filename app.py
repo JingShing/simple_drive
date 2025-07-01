@@ -18,11 +18,10 @@ import config as cfg
 import numpy as np
 
 
-IMAGE_EXTS = set(cfg.IMAGE_EXTS)
+IMAGE_EXTS = set(cfg.SETTINGS['upload_exts'])  # 只要上傳／預覽的 ext
+# RAW ext 還是從 config.py RAW_EXTS
+ALLOWED_DOWNLOAD_EXTS = set(cfg.SETTINGS['download_exts'])
 RAW_EXTS = set(cfg.RAW_EXTS)
-# 下載也只允許這些
-ALLOWED_DOWNLOAD_EXTS = IMAGE_EXTS | RAW_EXTS
-
 app = Flask(__name__, static_folder='static', template_folder='templates')
 # 用於 session 加密
 app.secret_key = cfg.FLASK_SECRET
@@ -30,6 +29,7 @@ app.secret_key = cfg.FLASK_SECRET
 
 SPACES = cfg.SPACES
 SPACES_FILE = cfg.SPACES_FILE
+
 
 def get_space_cfg(space):
     cfg = SPACES.get(space)
@@ -253,26 +253,28 @@ def api_raw(space):
 @login_required
 def api_upload(space):
     cfg = get_space_cfg(space)
-    # 如果不允許上傳，就回 403
     if not cfg.get('allow_upload'):
         abort(403)
 
-    # 前端會以 form-data 傳一個檔案欄位 "file"
     uploaded = request.files.get('file')
-    # 你也可以傳一個相對路徑參數 path，決定上傳到哪個子資料夾
     rel_path = request.form.get('path', '').lstrip('/')
     target_dir = secure_path(cfg['path'], rel_path)
 
     if not uploaded:
         abort(400, description='沒有傳任何檔案過來')
-    # 簡單檢查副檔名（避免任意程式上傳）
+
     filename = uploaded.filename
+    # 1. 檔名基本檢查
     if filename == '' or '/' in filename or '\\' in filename:
         abort(400, description='不合法檔名')
 
-    # 存到 target_dir 底下
+    # 2. 副檔名檢查
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_UPLOAD_EXTS:
+        abort(400, description=f'不支援的副檔名：{ext}')
+
+    # 3. 存檔
     dest = os.path.join(target_dir, filename)
-    # 如果遠端有同名檔，可以自行決定要複寫或改名，這裡示範覆寫
     uploaded.save(dest)
     return jsonify({'success': True, 'filename': filename})
 
@@ -408,9 +410,15 @@ def admin_logout():
 @app.route('/admin')
 @admin_required
 def admin_index():
-    return render_template('admin.html', spaces=SPACES)
+    return render_template(
+        'admin.html',
+        spaces=SPACES,
+        settings=cfg.SETTINGS    # <<< 一定要传这个！
+    )
 
 # ─── Admin API: 新增或更新 Space ─────────────────
+
+
 @app.route('/admin/api/save', methods=['POST'])
 @admin_required
 def admin_save():
@@ -433,6 +441,8 @@ def admin_save():
     return jsonify({'success': True})
 
 # ─── Admin API: 刪除 Space ────────────────────
+
+
 @app.route('/admin/api/delete', methods=['POST'])
 @admin_required
 def admin_delete_space():
@@ -445,6 +455,27 @@ def admin_delete_space():
         return jsonify({'success': True})
     return jsonify({'error': '找不到該空間'}), 404
 
+# ─── Admin API: 更新全域副檔名白名單 ──────────────
+
+
+@app.route('/admin/api/settings', methods=['POST'])
+@admin_required
+def admin_save_settings():
+    data = request.get_json() or {}
+    # 直接從 cfg.SETTINGS 拿舊設定
+    settings = cfg.SETTINGS
+
+    # 更新 array
+    settings['upload_exts'] = data.get(
+        'upload_exts',   settings.get('upload_exts', []))
+    settings['download_exts'] = data.get(
+        'download_exts', settings.get('download_exts', []))
+
+    # 寫回 settings.json
+    with open(cfg.SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(settings, f, ensure_ascii=False, indent=2)
+
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
