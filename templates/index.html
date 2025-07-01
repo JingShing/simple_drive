@@ -64,29 +64,20 @@
     <!-- 圖卡格 -->
     <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
       <div v-for="item in items" :key="item.path" class="col">
-        <div class="card file-item"
-             
-              @dblclick="open(item)">
-          <!-- 縮圖：單擊 openModal，阻止冒泡 -->
+        <div class="card file-item" @dblclick="open(item)">
           <img
             v-if="item.is_image"
-            :src="`/${SPACE}/api/thumbnail?path=${encodeURIComponent(item.path)}`"
-            class="card-img-top"
+            class="card-img-top lazy-image"
+            loading="lazy"
+            :data-src="`/${SPACE}/api/thumbnail?path=${encodeURIComponent(item.path)}`"
             @click.stop="openModal(item)"
+            :alt="item.name"
           >
-          <!-- 非影像檔就顯示圖示 -->
           <div v-else class="card-body text-center py-4">
             <i :class="item.is_dir ? 'bi bi-folder-fill' : 'bi bi-file-earmark-text'"
                style="font-size:3rem;"></i>
           </div>
-          <div class="card-footer text-truncate">
-            {{ item.name }}
-            <!-- 三點按鈕 -->
-            <button class="btn btn-sm options-btn" 
-                    @click.stop="openMenu($event, item)">
-              <i class="bi bi-three-dots-vertical"></i>
-            </button>
-          </div>
+          <div class="card-footer text-truncate">{{ item.name }}</div>
         </div>
       </div>
     </div>

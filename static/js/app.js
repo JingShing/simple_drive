@@ -29,6 +29,9 @@ createApp({
                     this.items = data;
                     this.currentPath = path;
                     this.updateBreadcrumbs();
+                    this.$nextTick(() => {
+                        this.observeLazyImages();
+                    });
                 });
         },
         updateBreadcrumbs() {
@@ -168,7 +171,32 @@ createApp({
                     alert('刪除發生錯誤');
                 });
         },
+        observeLazyImages() {
+            // 只建一次 Observer
+            if (!this._lazyObserver) {
+                this._lazyObserver = new IntersectionObserver((entries, obs) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            img.src = img.dataset.src;        // 真正把 URL 写给 src
+                            obs.unobserve(img);               // 加载后就不再观测
+                        }
+                    });
+                }, {
+                    root: null,
+                    rootMargin: '200px 0px',            // 向上下各扩 200px 提前加载
+                    threshold: 0.1
+                });
+            }
+            // 找出所有还没 src 的图片开始观测
+            document.querySelectorAll('img.lazy-image').forEach(img => {
+                if (!img.src) {
+                    this._lazyObserver.observe(img);
+                }
+            });
+        }
     },
+
     mounted() {
         this.fetchList();
         document.addEventListener('click', this.hideContext);

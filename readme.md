@@ -1,64 +1,72 @@
 # Cloud Drive Viewer
 
-這是一個以 Flask 為後端、Vue + Bootstrap 為前端實現的「雲端硬碟」瀏覽與預覽工具，並支援多資料夾空間、密碼保護、影像縮圖、RAW 檔解碼、EXIF 資訊顯示等功能。
+這是一個以 Flask 為後端、Vue + Bootstrap 為前端實現的「雲端硬碟」瀏覽與預覽工具，支援多資料夾空間、密碼保護、影像縮圖、RAW 檔解碼、EXIF 資訊顯示、上傳／刪除功能控制，以及縮圖懶載入等特色。
 
 ## 功能特色
 
 1. **多資料夾空間 (Spaces)**
 
-   * 在 `SPACES` 字典中設定多個隨機路徑前綴 (e.g. `jakxjs`, `shbsb`)，各自對應不同物理資料夾。
+   * 可在 `config.py` 中於 `SPACES` 字典設定多個隨機路徑前綴（如 `jakxjs`、`shbsb`），分別對應不同的物理資料夾。
    * 根目錄 `/` 顯示所有註冊空間列表，點擊即可進入相應空間。
 
-2. **資料夾加密保護**
+2. **密碼保護 (Encryption)**
 
-   * 可針對指定空間開啟密碼保護 (encrypted=True)，未登入者將被導向密碼頁面。
-   * 登入後以 Session 記錄授權狀態。
+   * 支援針對單一空間開啟密碼保護 (`encrypted: True`)，未登入者會被導向密碼輸入頁面。
+   * 前端以 SHA‑256 雜湊後傳輸密碼，後端比對雜湊值，避免明文傳輸。
 
-3. **響應式前端 (RWD)**
+3. **獨立控制上傳／刪除**
 
-   * 使用 Bootstrap grid 系統與 Vue3，畫面自動適應手機、平板、桌機。
-   * 檔案以卡片形式列出，可雙擊進入資料夾或點擊縮圖預覽大圖。
+   * 在 `config.py` 透過 `allow_upload` 和 `allow_delete` 屬性，可分別啟用或關閉上傳與刪除功能。
+   * 前端 `index.html` 會依 `window.ALLOW_UPLOAD` 與 `window.ALLOW_DELETE` 來顯示「上傳」及「刪除」按鈕。
 
-4. **縮圖預覽 (Thumbnail)**
+4. **響應式前端 (RWD)**
 
-   * 對一般影像檔 (.jpg/.png/.gif) 直接以 Pillow 縮圖。
-   * 對 RAW 檔 (.cr2/.nef/.arw/.dng/.cr3 等) 以 rawpy 半尺解碼，再轉成縮圖。
-   * Endpoint: `GET /<space>/api/thumbnail?path=<rel_path>`。
+   * 使用 Bootstrap 5 grid 系統與 Vue 3，畫面自動適應手機、平板、桌機。
+   * 檔案以卡片形式列出，可雙擊進入資料夾，或點擊縮圖（Thumbnail）預覽大圖。
 
-5. **原檔預覽 (Raw Preview)**
+5. **縮圖預覽 (Thumbnail)**
 
-   * 一鍵在 Modal 彈窗顯示無壓縮大圖。
-   * RAW 檔使用 rawpy 全尺解碼並以 Pillow 輸出 JPEG；一般影像直接回傳原檔。
-   * Endpoint: `GET /<space>/api/raw?path=<rel_path>`。
+   * 對一般影像檔 (.jpg/.png/.gif/.bmp) 使用 Pillow 產生縮圖；對 RAW 檔 (.cr2/.nef/.arw/.dng/.cr3) 以 rawpy 半尺解碼並轉為縮圖。
+   * 支援**懶載入**：透過 IntersectionObserver，只載入可視區域及上下 buffer 的縮圖，並自動按上至下順序觸發。
+   * Endpoint：`GET /<space>/api/thumbnail?path=<rel_path>`。
 
-6. **檔案下載 (Download)**
+6. **原圖預覽 (Raw Preview)**
 
-   * 下載任何格式檔案 (含 RAW)。
-   * Endpoint: `GET /<space>/api/download?path=<rel_path>`。
+   * 在 Modal 彈窗中顯示無壓縮大圖：對 RAW 檔全尺解碼後以 Pillow 輸出 JPEG，對一般影像直接回傳。
+   * 具備「下載」按鈕，可將原檔下載。
+   * Endpoint：`GET /<space>/api/raw?path=<rel_path>`。
 
-7. **EXIF / Metadata 偵測**
+7. **檔案下載 (Download)**
 
-   * 對 RAW 檔呼叫系統 ExifTool 取得完整 Tag (含 CR3)，並以 JSON 回傳。
-   * 對 JPEG/PNG 使用 Pillow + ExifTags 擷取常見欄位 (ISO、快門、光圈、相機/鏡頭型號、拍攝時間)。
-   * Endpoint: `GET /<space>/api/metadata?path=<rel_path>`。
+   * 可下載所有允許副檔名的檔案（image + RAW）。
+   * Endpoint：`GET /<space>/api/download?path=<rel_path>`。
 
-8. **Google Drive 風格側欄**
+8. **檔案刪除 (Delete)**
 
-   * 點擊「內容」按鈕，在右側固定面板顯示檔案細節。
-   * 可隨時關閉側欄。
+   * 透過 `POST /<space>/api/delete` 路由刪除單一檔案（不支援資料夾刪除）。
+   * 只有在該空間的 `allow_delete=True` 時才可呼叫，否則回應 403。
+
+9. **EXIF / Metadata 顯示**
+
+   * RAW 檔以 exifread 解析完整 EXIF，JPEG/PNG 使用 Pillow + ExifTags 擷取常見欄位（ISO、快門、光圈、相機/鏡頭型號、拍攝時間）。
+   * 點擊「內容」可在右側側欄顯示詳細檔案資訊。
+
+10. **Google Drive 風格側欄**
+
+    * 側欄固定在右側，顯示檔案名稱、大小、解析度、製造商、相機型號、鏡頭型號、ISO、快門、光圈、拍攝時間等。
 
 ## 前置需求
 
 * **Python 3.7 以上**
-* **系統安裝 [ExifTool](https://exiftool.org/)**，需可從命令列呼叫 `exiftool`。
-* 建議建立虛擬環境 (venv / conda)。
+* 系統需安裝 [ExifTool](https://exiftool.org/)，並可由命令列呼叫 `exiftool`
+* 建議使用虛擬環境 (venv / conda)
 
 ## 安裝與啟動
 
-1. 下載或 clone 本專案：
+1. Clone 本專案：
 
    ```bash
-   git clone https://github.com/你的帳號/your-repo.git
+   git clone https://github.com/HongMJ1315/simple_drive.git
    cd your-repo
    ```
 
@@ -66,23 +74,25 @@
 
    ```bash
    python -m venv venv
-   source venv/bin/activate    # Linux / macOS
-   venv\Scripts\activate     # Windows
+   # Linux/macOS
+   source venv/bin/activate
+   # Windows
+   venv\Scripts\activate
    ```
 
-3. 安裝 Python 套件：
+3. 安裝套件：
 
    ```bash
    pip install -r requirements.txt
    ```
 
-4. 設定環境變數（選填）：
+4. （選填）設定環境變數：
 
    ```bash
    export FLASK_SECRET="你的隨機字串"
    ```
 
-5. 執行 Flask 伺服器：
+5. 啟動伺服器：
 
    ```bash
    export FLASK_APP=app.py
@@ -90,111 +100,62 @@
    flask run --host=0.0.0.0 --port=5000
    ```
 
-   Windows PowerShell：
+6. 在瀏覽器開啟 `http://127.0.0.1:5000/`，選擇空間並開始使用
 
-   ```powershell
-   $env:FLASK_APP = "app.py"
-   $env:FLASK_ENV = "development"
-   flask run --host=0.0.0.0 --port=5000
-   ```
-
-6. 打開瀏覽器，前往 `http://127.0.0.1:5000/`，選擇空間並開始瀏覽。
-
-## 設定多資料夾與密碼
-
-在 `app.py` 中修改 `SPACES` 字典：
+## `config.py` 設定範例
 
 ```python
-SPACES = {
-  'shbsb': { 'path': r'C:/path/to/folder1', 'encrypted': False },
-  'jakxjs': { 'path': r'C:/path/to/folder2', 'encrypted': True, 'password': '1234' },
-}
-```
-
-* **key**：URL 路徑前綴 (訪問時使用 `http://.../<key>/`)。
-* **path**：對應的磁碟資料夾。
-* **encrypted**：是否啟用密碼保護。
-* **password**：若加密則為該空間的密碼。
-
-## 設定多資料夾與密碼
-
-在 `app.py` 中修改 `SPACES` 字典：
-
-```python
-SPACES = {
-  'shbsb': { 'path': r'C:/path/to/folder1', 'encrypted': False },
-  'jakxjs': { 'path': r'C:/path/to/folder2', 'encrypted': True, 'password': '1234' },
-}
-```
-
-* **key**：URL 路徑前綴 (訪問時使用 `http://.../<key>/`)。
-* **path**：對應的磁碟資料夾。
-* **encrypted**：是否啟用密碼保護。
-* **password**：若加密則為該空間的密碼。
-
-## 使用 config.py 進行設定拆分
-
-為了讓專案更易於維護，我們已將所有空間設定與相關常數抽出到獨立的 `config.py`：
-
-```python
-# config.py
-
 import os
 
-# Flask 用的 secret
-FLASK_SECRET = os.environ.get('FLASK_SECRET') or '你自己設的隨機字串'
+# Flask 加密用 secret
+FLASK_SECRET = os.environ.get('FLASK_SECRET') or '你的隨機字串'
 
-# 支援的影像與 RAW 副檔名
+# 支援的副檔名
 IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp'}
 RAW_EXTS   = {'.cr2', '.nef', '.arw', '.raf', '.rw2', '.dng', '.cr3'}
 
-# 多個空間的設定：path, encrypted, password, allow_upload
+# 資料空間設定
+# allow_upload: 是否顯示上傳按鈕
+# allow_delete: 是否顯示刪除按鈕
 SPACES = {
     'shbsb': {
-        'path': r'Your Folder Path',
+        'path': r'C:/path/to/folder1',
         'encrypted': False,
-        'allow_upload': False
+        'allow_upload': False,
+        'allow_delete': False
     },
     'jakxjs': {
-        'path': r'Your Folder Path',
+        'path': r'C:/path/to/folder2',
         'encrypted': True,
         'password': '123',
-        'allow_upload': True
+        'allow_upload': True,
+        'allow_delete': True
     },
 }
 ```
 
-在 `app.py` 中載入並使用 `config.py` 中的常數：
+在 `app.py` 載入設定：
 
 ```python
 import config
-
-IMAGE_EXTS = config.IMAGE_EXTS
-RAW_EXTS   = config.RAW_EXTS
-SPACES     = config.SPACES
+IMAGE_EXTS    = config.IMAGE_EXTS
+RAW_EXTS      = config.RAW_EXTS
+SPACES        = config.SPACES
 app.secret_key = config.FLASK_SECRET
 ```
-
-這樣做能將設定集中管理，方便日後調整與維護。
-
-## 前端技術
-
-* Vue 3
-* Bootstrap 5
-* Bootstrap Icons
 
 ## 目錄結構
 
 ```
-├── app.py
-├── config.py        # 集中化設定檔
+├── app.py         # Flask 主程式
+├── config.py      # 設定檔（space, ext, secret...）
 ├── requirements.txt
 ├── templates/
-│   ├── spaces.html   # 根目錄列表
-│   ├── login.html    # 密碼輸入頁
-│   └── index.html    # 主畫面 + Vue 模板
+│   ├── spaces.html  # 空間列表
+│   ├── login.html   # 密碼頁
+│   └── index.html   # 主畫面 Vue 模板
 ├── static/
 │   ├── css/style.css
-│   └── js/app.js
+│   └── js/app.js   # Vue 3 + IntersectionObserver 懶載入
 └── README.md
 ```
