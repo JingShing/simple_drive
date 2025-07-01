@@ -77,7 +77,14 @@
             <i :class="item.is_dir ? 'bi bi-folder-fill' : 'bi bi-file-earmark-text'"
                style="font-size:3rem;"></i>
           </div>
-          <div class="card-footer text-truncate">{{ item.name }}</div>
+          <div class="card-footer text-truncate">
+            {{ item.name }}
+            <!-- 三點按鈕 -->
+            <button class="btn btn-sm options-btn" 
+                    @click.stop="openMenu($event, item)">
+              <i class="bi bi-three-dots-vertical"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
