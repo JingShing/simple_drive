@@ -161,7 +161,8 @@ def api_download(space):
 def api_thumbnail(space):
     rel = request.args.get('path', '').lstrip('/')
     cfg = get_space_cfg(space)
-    file_full = secure_path(cfg['path'], rel)
+    file_full = secure_path(os.path.join(config.DRIVE_ROOT, cfg['path']), rel)
+
     ext = os.path.splitext(file_full)[1].lower()
 
     try:
@@ -213,9 +214,11 @@ def api_raw(space):
     cfg = get_space_cfg(space)
     folder = os.path.dirname(rel)
     name = os.path.basename(rel)
-    # file_full = secure_path(cfg['path'], rel)
+    # file_full = secure_path(os.path.join(config.DRIVE_ROOT, cfg['path']), rel)
+
     # folder_full = secure_path(cfg['path'], folder)
-    file_full = secure_path(cfg['path'], rel)
+    file_full = secure_path(os.path.join(config.DRIVE_ROOT, cfg['path']), rel)
+
 
     ext = os.path.splitext(file_full)[1].lower()
 
@@ -290,7 +293,8 @@ def api_delete(space):
         abort(403)
     data = request.get_json() or {}
     rel = data.get('path', '').lstrip('/')
-    file_full = secure_path(cfg['path'], rel)
+    file_full = secure_path(os.path.join(config.DRIVE_ROOT, cfg['path']), rel)
+
     # 我們只允許刪除檔案，不允許刪除資料夾
     if os.path.isdir(file_full):
         abort(400, '不支援刪除資料夾')
@@ -306,7 +310,8 @@ def api_delete(space):
 def api_metadata(space):
     rel = request.args.get('path', '').lstrip('/')
     cfg = get_space_cfg(space)
-    file_full = secure_path(cfg['path'], rel)
+    file_full = secure_path(os.path.join(config.DRIVE_ROOT, cfg['path']), rel)
+
     ext = os.path.splitext(file_full)[1].lower()
 
     info = {
@@ -445,9 +450,9 @@ def admin_save():
     if not key:
         return jsonify({'error': 'Key 不能為空'}), 400
     
+    # 只把「相對路徑」存到 JSON，真正操作時再拼 DRIVE_ROOT+relpath
     SPACES[key] = {
-        'path': abs_path,
-        'path':         data.get('path', ''),
+        'path':         relpath,
         'encrypted':    data.get('encrypted', False),
         'password':     data.get('password', ''),
         'allow_upload': data.get('allow_upload', False),
