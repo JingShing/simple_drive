@@ -27,7 +27,6 @@ app.secret_key = config.FLASK_SECRET
 
 
 SPACES = config.SPACES
-SPACES_FILE = config.SPACES_FILE
 
 
 def get_space_cfg(space):
@@ -218,7 +217,6 @@ def api_raw(space):
 
     # folder_full = secure_path(cfg['path'], folder)
     file_full = secure_path(os.path.join(config.DRIVE_ROOT, cfg['path']), rel)
-
 
     ext = os.path.splitext(file_full)[1].lower()
 
@@ -423,7 +421,7 @@ def admin_index():
     for key, cfg in SPACES.items():
         # cfg['path'] 是絕對路徑，relpath 會從 DRIVE_ROOT 算出相對路徑
         rel = os.path.relpath(cfg['path'], config.DRIVE_ROOT)
-        spaces_rel[key] = { **cfg, 'path': rel }
+        spaces_rel[key] = {**cfg, 'path': rel}
     return render_template(
         'admin.html',
         spaces=spaces_rel,
@@ -438,7 +436,7 @@ def admin_index():
 def admin_save():
     data = request.get_json()
     key = data.get('key', '').strip()
-    relpath = data.get('path','').strip()
+    relpath = data.get('path', '').strip()
     # 拼絕對路徑
     abs_path = os.path.abspath(os.path.join(config.DRIVE_ROOT, relpath))
     # 確保不跳脫到 DRIVE_ROOT 以外
@@ -449,7 +447,7 @@ def admin_save():
     # 基本驗證
     if not key:
         return jsonify({'error': 'Key 不能為空'}), 400
-    
+
     # 只把「相對路徑」存到 JSON，真正操作時再拼 DRIVE_ROOT+relpath
     SPACES[key] = {
         'path':         relpath,
@@ -459,7 +457,7 @@ def admin_save():
         'allow_delete': data.get('allow_delete', False)
     }
     # 寫回 spaces.json
-    with open(SPACES_FILE, 'w', encoding='utf-8') as f:
+    with open(SPACES, 'w', encoding='utf-8') as f:
         json.dump(SPACES, f, ensure_ascii=False, indent=2)
     flash(f"已儲存空間 {key}")
     return jsonify({'success': True})
@@ -474,7 +472,7 @@ def admin_delete_space():
     key = data.get('key')
     if key in SPACES:
         SPACES.pop(key)
-        with open(SPACES_FILE, 'w', encoding='utf-8') as f:
+        with open(SPACES, 'w', encoding='utf-8') as f:
             json.dump(SPACES, f, ensure_ascii=False, indent=2)
         return jsonify({'success': True})
     return jsonify({'error': '找不到該空間'}), 404
