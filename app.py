@@ -427,9 +427,19 @@ def admin_index():
 def admin_save():
     data = request.get_json()
     key = data.get('key', '').strip()
+    path = data.get('path', '').strip()
+
     # 基本驗證
     if not key:
         return jsonify({'error': 'Key 不能為空'}), 400
+    
+    # 驗證 path 一定要在 DRIVE_ROOT 底下
+    # 注意 os.path.commonpath 需要絕對路徑
+    drive_root = os.path.abspath(config.DRIVE_ROOT)
+    abs_target = os.path.abspath(path)
+    if os.path.commonpath([drive_root, abs_target]) != drive_root:
+        return jsonify({'error': f'path 必須在 DRIVE_ROOT({drive_root}) 底下'}), 400
+    
     SPACES[key] = {
         'path':         data.get('path', ''),
         'encrypted':    data.get('encrypted', False),
