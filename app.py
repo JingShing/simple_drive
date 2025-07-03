@@ -413,10 +413,16 @@ def admin_logout():
 @app.route('/admin')
 @admin_required
 def admin_index():
+    # 把 SPACES 裡的絕對 path 轉成 DRIVE_ROOT 底下的相對路徑
+    spaces_rel = {}
+    for key, cfg in SPACES.items():
+        # cfg['path'] 是絕對路徑，relpath 會從 DRIVE_ROOT 算出相對路徑
+        rel = os.path.relpath(cfg['path'], config.DRIVE_ROOT)
+        spaces_rel[key] = { **cfg, 'path': rel }
     return render_template(
         'admin.html',
-        spaces=SPACES,
-        settings=config.SETTINGS    # <<< 一定要传这个！
+        spaces=spaces_rel,
+        settings=config.SETTINGS
     )
 
 # ─── Admin API: 新增或更新 Space ─────────────────
@@ -427,20 +433,20 @@ def admin_index():
 def admin_save():
     data = request.get_json()
     key = data.get('key', '').strip()
-    path = data.get('path', '').strip()
+    relpath = data.get('path','').strip()
+    # 拼絕對路徑
+    abs_path = os.path.abspath(os.path.join(config.DRIVE_ROOT, relpath))
+    # 確保不跳脫到 DRIVE_ROOT 以外
+    drive_root = os.path.abspath(config.DRIVE_ROOT)
+    if os.path.commonpath([drive_root, abs_path]) != drive_root:
+        return jsonify({'error': f'路徑必須在 DRIVE_ROOT({drive_root}) 之下'}), 400
 
     # 基本驗證
     if not key:
         return jsonify({'error': 'Key 不能為空'}), 400
     
-    # 驗證 path 一定要在 DRIVE_ROOT 底下
-    # 注意 os.path.commonpath 需要絕對路徑
-    drive_root = os.path.abspath(config.DRIVE_ROOT)
-    abs_target = os.path.abspath(path)
-    if os.path.commonpath([drive_root, abs_target]) != drive_root:
-        return jsonify({'error': f'path 必須在 DRIVE_ROOT({drive_root}) 底下'}), 400
-    
     SPACES[key] = {
+        'path': abs_path,
         'path':         data.get('path', ''),
         'encrypted':    data.get('encrypted', False),
         'password':     data.get('password', ''),

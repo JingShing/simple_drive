@@ -46,9 +46,14 @@
       <span v-if="editingKey">編輯</span>
       <span v-else>新增</span> 空間
     </h2>
+
     <form @submit.prevent="save">
       <input v-model="form.key" placeholder="key (URL 前綴)" :readonly="editingKey"><br>
-      <input v-model="form.path" placeholder="資料夾絕對路徑" required><br>
+      <input 
+        v-model="form.path"
+        placeholder="相對路徑 (相對於 DRIVE_ROOT)" 
+        required
+      > <br>
       <label><input type="checkbox" v-model="form.encrypted"> 加密</label>
       <input v-if="form.encrypted" v-model="form.password" placeholder="密碼"><br>
       <label><input type="checkbox" v-model="form.allow_upload"> 允許上傳</label>
