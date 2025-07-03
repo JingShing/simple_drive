@@ -27,6 +27,7 @@ app.secret_key = config.FLASK_SECRET
 
 
 SPACES = config.SPACES
+SPACES_FILE = config.SPACES_FILE
 
 
 def get_space_cfg(space):
@@ -117,7 +118,9 @@ def browse(space):
 def api_list(space):
     rel_path = request.args.get('path', '')
     cfg = get_space_cfg(space)
-    folder = secure_path(cfg['path'], rel_path)
+    # 改成：先把 cfg['path']（相對路徑）拼到 DRIVE_ROOT，才跑 secure_path
+    base = os.path.join(config.DRIVE_ROOT, cfg['path'])
+    folder = secure_path(base, rel_path)
     items = []
     for entry in os.scandir(folder):
         ext = os.path.splitext(entry.name)[1].lower()
@@ -142,7 +145,8 @@ def api_download(space):
     rel = rel.lstrip('/')
     folder = os.path.dirname(rel)
     name = os.path.basename(rel)
-    folder_full = secure_path(cfg['path'], folder)
+    folder_full = secure_path(os.path.join(
+        config.DRIVE_ROOT, cfg['path']), folder)
 
     # 嚴格檢查副檔名
     allowed = set(config.SETTINGS.get('download_exts', []))
@@ -247,7 +251,8 @@ def api_raw(space):
         # 不是 RAW，直接送原檔
         folder = os.path.dirname(rel)
         name = os.path.basename(rel)
-        folder_full = secure_path(cfg['path'], folder)
+        folder_full = secure_path(os.path.join(
+            config.DRIVE_ROOT, cfg['path']), folder)
         return send_from_directory(folder_full, name, as_attachment=False)
 
 
@@ -420,8 +425,10 @@ def admin_index():
     spaces_rel = {}
     for key, cfg in SPACES.items():
         # cfg['path'] 是絕對路徑，relpath 會從 DRIVE_ROOT 算出相對路徑
-        rel = os.path.relpath(cfg['path'], config.DRIVE_ROOT)
-        spaces_rel[key] = {**cfg, 'path': rel}
+        # rel = os.path.relpath(cfg['path'], config.DRIVE_ROOT)
+        # spaces_rel[key] = {**cfg, 'path': rel}
+        spaces_rel[key] = {**cfg, 'path': cfg['path']}
+
     return render_template(
         'admin.html',
         spaces=spaces_rel,
@@ -457,7 +464,7 @@ def admin_save():
         'allow_delete': data.get('allow_delete', False)
     }
     # 寫回 spaces.json
-    with open(SPACES, 'w', encoding='utf-8') as f:
+    with open(SPACES_FILE, 'w', encoding='utf-8') as f:
         json.dump(SPACES, f, ensure_ascii=False, indent=2)
     flash(f"已儲存空間 {key}")
     return jsonify({'success': True})
@@ -472,7 +479,7 @@ def admin_delete_space():
     key = data.get('key')
     if key in SPACES:
         SPACES.pop(key)
-        with open(SPACES, 'w', encoding='utf-8') as f:
+        with open(SPACES_FILE, 'w', encoding='utf-8') as f:
             json.dump(SPACES, f, ensure_ascii=False, indent=2)
         return jsonify({'success': True})
     return jsonify({'error': '找不到該空間'}), 404
