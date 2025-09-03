@@ -1,3 +1,5 @@
+繁體中文 | [English](README_EN.md)
+
 # Cloud Drive Viewer
 
 這是一個以 Flask 為後端、Vue + Bootstrap 為前端實現的「雲端硬碟」瀏覽與預覽工具，支援多資料夾空間、密碼保護、影像縮圖、RAW 檔解碼、EXIF 資訊顯示、上傳／刪除功能控制，以及縮圖懶載入和後台管理（Admin Console）等特色。
