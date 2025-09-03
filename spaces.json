@@ -1,0 +1,15 @@
+{
+  "shbsb": {
+    "path": "C:\\test",
+    "encrypted": false,
+    "allow_upload": false,
+    "allow_delete": false
+  },
+  "jakxjs": {
+    "path": "C:\\test\\password",
+    "encrypted": true,
+    "password": "123",
+    "allow_upload": true,
+    "allow_delete": true
+  }
+}
